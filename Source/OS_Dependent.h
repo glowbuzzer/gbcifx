@@ -32,6 +32,9 @@ Copyright (c) Hilscher Gesellschaft fuer Systemautomation mbH. All Rights Reserv
 #define __OS_DEPENDENT__H
 
 #include <stdint.h>
+#include <stdlib.h>
+#include "log.h"
+#include "user_message.h"
 
 #ifdef __cplusplus
 extern "C"

@@ -24,7 +24,7 @@ Copyright (c) Hilscher Gesellschaft fuer Systemautomation mbH. All Rights Reserv
 #include "cifXToolkit.h"
 #include "cifXErrors.h"
 
-#error "Implement target system specifc user functions in this file"
+//#error "Implement target system specifc user functions in this file"
 
 /*****************************************************************************/
 /*!  \addtogroup CIFX_TK_USER User specific implementation
@@ -118,6 +118,7 @@ void USER_GetBootloaderFile(PDEVICEINSTANCE ptDevInstance, PCIFX_FILE_INFORMATIO
 /*****************************************************************************/
 int USER_GetWarmstartParameters(PCIFX_DEVICE_INFORMATION ptDevInfo, CIFX_PACKET* ptPacket)
 {
+    return 0;
 }
 
 /*****************************************************************************/
@@ -139,6 +140,7 @@ void USER_GetAliasName(PCIFX_DEVICE_INFORMATION ptDevInfo, uint32_t ulMaxLen, ch
 /*****************************************************************************/
 int USER_GetInterruptEnable(PCIFX_DEVICE_INFORMATION ptDevInfo)
 {
+    return 0;
 }
 
 #ifdef CIFX_TOOLKIT_DMA
@@ -165,6 +167,18 @@ int USER_GetDMAMode(PCIFX_DEVICE_INFORMATION ptDevInfo)
 /*****************************************************************************/
 void USER_Trace(PDEVICEINSTANCE ptDevInstance, uint32_t ulTraceLevel, const char* szFormat, ...)
 {
+    va_list vaList;
+
+    if(g_ulTraceLevel & ulTraceLevel)
+    {
+        va_start(vaList, szFormat);
+        vprintf(szFormat, vaList);
+        va_end(vaList);
+        printf("\r\n");
+    }
+
+    UNREFERENCED_PARAMETER(ptDevInstance);
+
 }
 
 

@@ -24,8 +24,13 @@ Copyright (c) Hilscher Gesellschaft fuer Systemautomation mbH. All Rights Reserv
 /*****************************************************************************/
 
 #include "OS_Dependent.h"
+#include "cifXErrors.h"
+#include "cifXHWFunctions.h"
+#include "OS_Includes.h"
 
-#error "Implement target system abstraction in this file"
+#define NSEC_PER_SEC (1000U * 1000U * 1000U)
+
+//#error "Implement target system abstraction in this file"
 
 /*****************************************************************************/
 /*!  \addtogroup CIFX_TK_OS_ABSTRACTION Operating System Abstraction
@@ -39,6 +44,7 @@ Copyright (c) Hilscher Gesellschaft fuer Systemautomation mbH. All Rights Reserv
 /*****************************************************************************/
 void* OS_Memalloc(uint32_t ulSize)
 {
+    return malloc(ulSize);
 }
 
 /*****************************************************************************/
@@ -47,6 +53,7 @@ void* OS_Memalloc(uint32_t ulSize)
 /*****************************************************************************/
 void OS_Memfree(void* pvMem)
 {
+    free(pvMem);
 }
 
 /*****************************************************************************/
@@ -57,6 +64,7 @@ void OS_Memfree(void* pvMem)
 /*****************************************************************************/
 void* OS_Memrealloc(void* pvMem, uint32_t ulNewSize)
 {
+    return realloc(pvMem, ulNewSize);
 }
 
 /*****************************************************************************/
@@ -67,6 +75,7 @@ void* OS_Memrealloc(void* pvMem, uint32_t ulNewSize)
 /*****************************************************************************/
 void OS_Memset(void* pvMem, uint8_t bFill, uint32_t ulSize)
 {
+    memset(pvMem, bFill, ulSize);
 }
 
 /*****************************************************************************/
@@ -77,6 +86,7 @@ void OS_Memset(void* pvMem, uint8_t bFill, uint32_t ulSize)
 /*****************************************************************************/
 void OS_Memcpy(void* pvDest, void* pvSrc, uint32_t ulSize)
 {
+    memcpy(pvDest, pvSrc, ulSize);
 }
 
 /*****************************************************************************/
@@ -88,6 +98,7 @@ void OS_Memcpy(void* pvDest, void* pvSrc, uint32_t ulSize)
 /*****************************************************************************/
 int OS_Memcmp(void* pvBuf1, void* pvBuf2, uint32_t ulSize)
 {
+    return memcmp(pvBuf1, pvBuf2, ulSize);
 }
 
 /*****************************************************************************/
@@ -98,6 +109,7 @@ int OS_Memcmp(void* pvBuf1, void* pvBuf2, uint32_t ulSize)
 /*****************************************************************************/
 void OS_Memmove(void* pvDest, void* pvSrc, uint32_t ulSize)
 {
+    memmove(pvDest, pvSrc, ulSize);
 }
 
 
@@ -107,6 +119,7 @@ void OS_Memmove(void* pvDest, void* pvSrc, uint32_t ulSize)
 /*****************************************************************************/
 void OS_Sleep(uint32_t ulSleepTimeMs)
 {
+    usleep(ulSleepTimeMs * 1000);
 }
 
 /*****************************************************************************/
@@ -116,6 +129,10 @@ void OS_Sleep(uint32_t ulSleepTimeMs)
 /*****************************************************************************/
 uint32_t OS_GetMilliSecCounter(void)
 {
+    struct timespec now;
+    clock_gettime(CLOCK_MONOTONIC, &now);
+
+    return (uint32_t)( SEC_TO_MSEC(now.tv_sec) + NSEC_TO_MSEC(now.tv_nsec));
 }
 
 /*****************************************************************************/
@@ -124,6 +141,7 @@ uint32_t OS_GetMilliSecCounter(void)
 /*****************************************************************************/
 void* OS_CreateEvent(void)
 {
+    return NULL;
 }
 
 /*****************************************************************************/
@@ -132,6 +150,7 @@ void* OS_CreateEvent(void)
 /*****************************************************************************/
 void OS_SetEvent(void* pvEvent)
 {
+    UNREFERENCED_PARAMETER(pvEvent);
 }
 
 /*****************************************************************************/
@@ -140,6 +159,7 @@ void OS_SetEvent(void* pvEvent)
 /*****************************************************************************/
 void OS_ResetEvent(void* pvEvent)
 {
+    UNREFERENCED_PARAMETER(pvEvent);
 }
 
 /*****************************************************************************/
@@ -148,6 +168,7 @@ void OS_ResetEvent(void* pvEvent)
 /*****************************************************************************/
 void OS_DeleteEvent(void* pvEvent)
 {
+    UNREFERENCED_PARAMETER(pvEvent);
 }
 
 /*****************************************************************************/
@@ -158,6 +179,10 @@ void OS_DeleteEvent(void* pvEvent)
 /*****************************************************************************/
 uint32_t OS_WaitEvent(void* pvEvent, uint32_t ulTimeout)
 {
+    UNREFERENCED_PARAMETER(pvEvent);
+    UNREFERENCED_PARAMETER(ulTimeout);
+
+    return CIFX_EVENT_SIGNALLED;
 }
 
 /*****************************************************************************/
@@ -168,6 +193,7 @@ uint32_t OS_WaitEvent(void* pvEvent, uint32_t ulTimeout)
 /*****************************************************************************/
 int OS_Strcmp(const char* pszBuf1, const char* pszBuf2)
 {
+    return strcmp(pszBuf1, pszBuf2);
 }
 
 /*****************************************************************************/
@@ -179,6 +205,7 @@ int OS_Strcmp(const char* pszBuf1, const char* pszBuf2)
 /*****************************************************************************/
 int OS_Strnicmp(const char* pszBuf1, const char* pszBuf2, uint32_t ulLen)
 {
+    return strncasecmp(pszBuf1, pszBuf2, ulLen);
 }  
 
 /*****************************************************************************/
@@ -188,6 +215,7 @@ int OS_Strnicmp(const char* pszBuf1, const char* pszBuf2, uint32_t ulLen)
 /*****************************************************************************/
 int OS_Strlen(const char* szText)
 {
+    return (int32_t) strlen(szText);
 }
 
 /*****************************************************************************/
@@ -200,6 +228,7 @@ int OS_Strlen(const char* szText)
 /*****************************************************************************/
 char* OS_Strncpy(char* szDest, const char* szSource, uint32_t ulLength)
 {
+    return strncpy(szDest, szSource, ulLength);
 }
 
 
@@ -209,6 +238,7 @@ char* OS_Strncpy(char* szDest, const char* szSource, uint32_t ulLength)
 /*****************************************************************************/
 void* OS_CreateLock(void)
 {
+    return OS_CreateMutex();
 }
 
 /*****************************************************************************/
@@ -233,6 +263,7 @@ void OS_LeaveLock(void* pvLock)
 /*****************************************************************************/
 void OS_DeleteLock(void* pvLock)
 {
+    OS_DeleteMutex(pvLock);
 }
 
 /*****************************************************************************/
@@ -241,6 +272,7 @@ void OS_DeleteLock(void* pvLock)
 /*****************************************************************************/
 void* OS_CreateMutex(void)
 {
+    return (void*)0x12345678;
 }
 
 /*****************************************************************************/
@@ -251,6 +283,7 @@ void* OS_CreateMutex(void)
 /*****************************************************************************/
 int OS_WaitMutex(void* pvMutex, uint32_t ulTimeout)
 {
+    return 1;
 }
 
 /*****************************************************************************/
@@ -259,6 +292,7 @@ int OS_WaitMutex(void* pvMutex, uint32_t ulTimeout)
 /*****************************************************************************/
 void OS_ReleaseMutex(void* pvMutex)
 {
+    return;
 }
 
 /*****************************************************************************/
@@ -277,6 +311,30 @@ void OS_DeleteMutex(void* pvMutex)
 /*****************************************************************************/
 void* OS_FileOpen(char* szFile, uint32_t* pulFileLen)
 {
+    assert(szFile != NULL);
+    assert(pulFileLen != NULL);
+
+    char pwd[200];
+    getcwd(pwd, sizeof(pwd));
+    int32_t iFile;
+    void* pvRet = NULL;
+
+    USER_Trace(NULL, TRACE_LEVEL_DEBUG, "OS_FileOpen(%s)", szFile);
+
+    iFile = open(szFile, O_RDONLY);
+    if (iFile != -1)
+    {
+        struct stat tBuffer;
+        ZERO_MEMORY(&tBuffer);
+
+        if (fstat(iFile, &tBuffer) != -1)
+        {
+            *pulFileLen = (uint32_t) tBuffer.st_size;
+            pvRet = (void*) iFile;
+        }
+    }
+
+    return pvRet;
 }
 
 /*****************************************************************************/
@@ -285,6 +343,12 @@ void* OS_FileOpen(char* szFile, uint32_t* pulFileLen)
 /*****************************************************************************/
 void OS_FileClose(void* pvFile)
 {
+    assert(pvFile);
+
+    int32_t iFile = (int32_t) pvFile;
+    USER_Trace(NULL, TRACE_LEVEL_DEBUG, "OS_FileClose");
+
+    close(iFile);
 }
 
 /*****************************************************************************/
@@ -297,6 +361,21 @@ void OS_FileClose(void* pvFile)
 /*****************************************************************************/
 uint32_t OS_FileRead(void* pvFile, uint32_t ulOffset, uint32_t ulSize, void* pvBuffer)
 {
+    assert(pvFile != NULL);
+    assert(pvBuffer != NULL);
+
+    int32_t iFile = (int32_t) pvFile;
+    uint32_t ulRet = 0;
+
+    USER_Trace( NULL, TRACE_LEVEL_DEBUG, "%s ()", __func__);
+
+    if (ulOffset == (uint32_t) lseek(iFile, (int32_t) ulOffset, SEEK_SET))
+    {
+        ulRet = (uint32_t) read(iFile, pvBuffer, ulSize);
+    }
+
+    return ulRet;
+
 }
 
 /*****************************************************************************/
@@ -305,6 +384,9 @@ uint32_t OS_FileRead(void* pvFile, uint32_t ulOffset, uint32_t ulSize, void* pvB
 /*****************************************************************************/
 int32_t OS_Init()
 {
+//    s_fOSInitDone = 1;
+
+    return CIFX_NO_ERROR;
 }
 
 /*****************************************************************************/
@@ -355,6 +437,12 @@ void* OS_ReadPCIConfig(void* pvOSDependent)
 /*****************************************************************************/
 void* OS_MapUserPointer(void* pvDriverMem, uint32_t ulMemSize, void** ppvMappedMem, void* pvOSDependent)
 {
+    UNREFERENCED_PARAMETER(ulMemSize);
+    UNREFERENCED_PARAMETER(pvOSDependent);
+    /* We are running in user mode, so it is not necessary to map anything to user space */
+    *ppvMappedMem = pvDriverMem;
+
+    return pvDriverMem;
 }
 
 /*****************************************************************************/
@@ -366,6 +454,10 @@ void* OS_MapUserPointer(void* pvDriverMem, uint32_t ulMemSize, void** ppvMappedM
 /*****************************************************************************/
 int OS_UnmapUserPointer(void* phMapping, void* pvOSDependent)
 {
+    UNREFERENCED_PARAMETER(phMapping);
+    UNREFERENCED_PARAMETER(pvOSDependent);
+    /* We are running in user mode, so it is not necessary to map anything to user space */
+    return 1;
 }
 
 /*****************************************************************************/

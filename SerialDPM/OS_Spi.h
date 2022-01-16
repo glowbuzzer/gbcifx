@@ -26,6 +26,14 @@ Copyright (c) Hilscher Gesellschaft fuer Systemautomation mbH. All Rights Reserv
 
 #include <stdint.h>
 #include <stdlib.h>
+#include "bcm2835.h"
+#include "cifXErrors.h"
+#include "user_message.h"
+#include "log.h"
+
+#define RPI_CS_PIN 8
+
+
 
 #ifdef __cplusplus
 extern "C"
