@@ -30,8 +30,15 @@ Copyright (c) Hilscher Gesellschaft fuer Systemautomation mbH. All Rights Reserv
 #include <stdlib.h>
 #include <fcntl.h>
 #include <sys/stat.h>
+#include <semaphore.h>
+#include <errno.h>
+#include <pthread.h>
 
 #define UNREFERENCED_PARAMETER(a) (a=a)
+
+#ifndef NV
+#define NV(var) #var,var
+#endif
 
 #ifndef NULL
 #define NULL 0

@@ -30,6 +30,8 @@ Copyright (c) Hilscher Gesellschaft fuer Systemautomation mbH. All Rights Reserv
 
 #define NSEC_PER_SEC (1000U * 1000U * 1000U)
 
+#define USE_PTHREADS 0
+
 //#error "Implement target system abstraction in this file"
 
 /*****************************************************************************/
@@ -141,7 +143,28 @@ uint32_t OS_GetMilliSecCounter(void)
 /*****************************************************************************/
 void* OS_CreateEvent(void)
 {
+
+#if USE_PTHREADS != 1
     return NULL;
+#else
+    sem_t *pSem;
+    USER_Trace(NULL, TRACE_LEVEL_DEBUG, "OS_CreateEvent");
+
+    pSem = calloc(1, sizeof(sem_t));
+    if (pSem)
+    {
+        if (sem_init(pSem, 0, 0) == -1)
+        {
+            free(pSem);
+            pSem = 0;
+        }
+        else
+        {
+            // done
+        }
+    }
+    return pSem;
+#endif
 }
 
 /*****************************************************************************/
@@ -150,7 +173,22 @@ void* OS_CreateEvent(void)
 /*****************************************************************************/
 void OS_SetEvent(void* pvEvent)
 {
+#if USE_PTHREADS != 1
     UNREFERENCED_PARAMETER(pvEvent);
+#else
+
+    USER_Trace(NULL, TRACE_LEVEL_DEBUG, "%s (%p)", __func__, pvEvent);
+
+    /*SetEvent((HANDLE)pvEvent);*/
+    int32_t value = 0;
+    sem_getvalue(pvEvent, &value);
+    if (value > 0)
+    {
+        USER_Trace(NULL, TRACE_LEVEL_INFO, "OS_SetEvent %p already set value=%d", pvEvent, value);
+    }
+    else
+        sem_post(pvEvent);
+#endif
 }
 
 /*****************************************************************************/
@@ -159,7 +197,9 @@ void OS_SetEvent(void* pvEvent)
 /*****************************************************************************/
 void OS_ResetEvent(void* pvEvent)
 {
+    /* this is only needed for manual-reset-events which are not available in linux */
     UNREFERENCED_PARAMETER(pvEvent);
+
 }
 
 /*****************************************************************************/
@@ -168,7 +208,13 @@ void OS_ResetEvent(void* pvEvent)
 /*****************************************************************************/
 void OS_DeleteEvent(void* pvEvent)
 {
+#if USE_PTHREADS != 1
     UNREFERENCED_PARAMETER(pvEvent);
+#else
+    /*CloseHandle((HANDLE)pvEvent);*/
+	sem_destroy(pvEvent);
+#endif
+
 }
 
 /*****************************************************************************/
@@ -179,10 +225,54 @@ void OS_DeleteEvent(void* pvEvent)
 /*****************************************************************************/
 uint32_t OS_WaitEvent(void* pvEvent, uint32_t ulTimeout)
 {
+#if USE_PTHREADS != 1
+
     UNREFERENCED_PARAMETER(pvEvent);
     UNREFERENCED_PARAMETER(ulTimeout);
 
     return CIFX_EVENT_SIGNALLED;
+#else
+    struct timespec ts;
+	int32_t s;
+
+	USER_Trace(NULL, TRACE_LEVEL_DEBUG,"%s (%s=%p, %s=%d)", __func__ , NV(pvEvent), NV(ulTimeout));
+
+	if (clock_gettime(CLOCK_REALTIME, &ts) == -1)
+	{
+		return CIFX_EVENT_TIMEOUT;
+	}
+
+	ts.tv_nsec += ((ulTimeout % 1000) * 1000000);
+	if (ts.tv_nsec >= 1000000000)
+	{
+		ts.tv_nsec -= 1000000000;
+		ts.tv_sec += 1;
+	}
+	ts.tv_sec += ulTimeout / 1000;
+
+	while ((s = sem_timedwait(pvEvent, &ts)) == -1 && errno == EINTR)
+		continue; /* Restart if interrupted by handler */
+
+	if ( s != 0)
+	{
+
+	}
+
+	/* Check what happened */
+	if (s == -1)
+	{
+		if (errno == ETIMEDOUT)
+			return CIFX_EVENT_TIMEOUT; /* Timeout */
+		else
+		   USER_Trace(NULL, TRACE_LEVEL_ERROR, "sem_timedwait = %s", strerror(errno));
+	}
+	else
+	{
+		return CIFX_EVENT_SIGNALLED; /* Success */
+	}
+	return 3; //CIFX_EVENT_TIMEOUT;	/* Error, but there is no other return value */
+#endif
+
 }
 
 /*****************************************************************************/
@@ -238,7 +328,32 @@ char* OS_Strncpy(char* szDest, const char* szSource, uint32_t ulLength)
 /*****************************************************************************/
 void* OS_CreateLock(void)
 {
+#if USE_PTHREADS != 1
     return OS_CreateMutex();
+#else
+    /* we use priority inheritance by default,
+  * just to make high prio task don't have to wait
+  * long than needed. */
+    pthread_mutexattr_t attr;
+    pthread_mutex_t *pLock = malloc(sizeof(pthread_mutex_t));
+    USER_Trace(NULL, TRACE_LEVEL_DEBUG, "%s ()", __func__);
+
+    if (pLock == 0)
+        return 0;
+
+    pthread_mutexattr_init(&attr);
+    pthread_mutexattr_setprotocol(&attr, PTHREAD_PRIO_INHERIT);
+
+#ifndef NDEBUG
+//	pthread_mutexattr_setrobust(&attr, PTHREAD_MUTEX_ROBUST_NP);
+    pthread_mutexattr_settype (&attr, PTHREAD_MUTEX_ERRORCHECK_NP);
+#endif
+
+    pthread_mutex_init(pLock, &attr);
+    pthread_mutexattr_destroy(&attr);
+
+    return pLock;
+#endif
 }
 
 /*****************************************************************************/
@@ -247,7 +362,13 @@ void* OS_CreateLock(void)
 /*****************************************************************************/
 void OS_EnterLock(void* pvLock)
 {
-}
+#if USE_PTHREADS != 1
+#else
+    int32_t error;
+    if ((error =  pthread_mutex_lock(pvLock)))
+        USER_Trace( NULL, TRACE_LEVEL_ERROR,"mutex lock failed with %s", strerror(error));
+#endif
+    }
 
 /*****************************************************************************/
 /*! Leave a critical section/spinlock
@@ -255,6 +376,14 @@ void OS_EnterLock(void* pvLock)
 /*****************************************************************************/
 void OS_LeaveLock(void* pvLock)
 {
+#if USE_PTHREADS != 1
+
+#else
+    int32_t error;
+
+    if (( error = pthread_mutex_unlock(pvLock)))
+        USER_Trace( NULL, TRACE_LEVEL_ERROR,"mutex unlock failed with %s", strerror(error));
+#endif
 }
 
 /*****************************************************************************/
@@ -263,7 +392,17 @@ void OS_LeaveLock(void* pvLock)
 /*****************************************************************************/
 void OS_DeleteLock(void* pvLock)
 {
+#if USE_PTHREADS != 1
     OS_DeleteMutex(pvLock);
+
+#else
+
+    assert(pvLock != NULL);
+    USER_Trace(NULL, TRACE_LEVEL_DEBUG, "OS_DeleteLock");
+
+    pthread_mutex_destroy(pvLock);
+    free(pvLock);
+#endif
 }
 
 /*****************************************************************************/
@@ -272,7 +411,31 @@ void OS_DeleteLock(void* pvLock)
 /*****************************************************************************/
 void* OS_CreateMutex(void)
 {
+#if USE_PTHREADS != 1
     return (void*)0x12345678;
+#else
+    pthread_mutexattr_t attr;
+    pthread_mutex_t *pMutex = malloc(sizeof(pthread_mutex_t));
+
+    USER_Trace( NULL, TRACE_LEVEL_DEBUG,  "%s", "OS_CreateLock");
+
+    if (pMutex == 0)
+        return 0;
+
+    pthread_mutexattr_init(&attr);
+    /* we use prio inheritance by default */
+    pthread_mutexattr_setprotocol(&attr, PTHREAD_PRIO_INHERIT);
+
+#ifndef NDEBUG
+//   pthread_mutexattr_setrobust(&attr, PTHREAD_MUTEX_ROBUST_NP);
+    pthread_mutexattr_settype (&attr, PTHREAD_MUTEX_ERRORCHECK_NP);
+#endif
+
+    pthread_mutex_init(pMutex, &attr);
+    pthread_mutexattr_destroy(&attr);
+
+    return pMutex;
+#endif
 }
 
 /*****************************************************************************/
@@ -283,7 +446,37 @@ void* OS_CreateMutex(void)
 /*****************************************************************************/
 int OS_WaitMutex(void* pvMutex, uint32_t ulTimeout)
 {
+#if USE_PTHREADS != 1
     return 1;
+#else
+    assert(pvMutex != NULL);
+    /*return (WaitForSingleObject((HANDLE)pvMutex, ulTimeout) == WAIT_OBJECT_0) ? 1 : 0;*/
+    struct timespec abs_timeout;
+
+    USER_Trace(NULL, TRACE_LEVEL_DEBUG, "OS_WaitMutex(timeout=%dms)", ulTimeout);
+
+    clock_gettime(CLOCK_REALTIME, &abs_timeout);
+
+    abs_timeout.tv_sec += ulTimeout / 1000;	// convert to seconds
+    abs_timeout.tv_nsec += (ulTimeout % 1000) * 1000000;	// convert to nanoseconds
+
+    if ( abs_timeout.tv_nsec >= NSEC_PER_SEC)
+    {
+        abs_timeout.tv_nsec -= NSEC_PER_SEC;
+        abs_timeout.tv_sec++;
+    }
+
+
+    int32_t error;
+    if ((error = pthread_mutex_timedlock(pvMutex, &abs_timeout)))
+    {
+        if ( error != ETIMEDOUT)
+            USER_Trace( NULL, TRACE_LEVEL_ERROR, "pthread_mutex_timedlock failed with %s", strerror(error));
+        return 0;
+    }
+
+    return 1;
+#endif
 }
 
 /*****************************************************************************/
@@ -292,7 +485,18 @@ int OS_WaitMutex(void* pvMutex, uint32_t ulTimeout)
 /*****************************************************************************/
 void OS_ReleaseMutex(void* pvMutex)
 {
+#if USE_PTHREADS != 1
+
     return;
+#else
+    assert(pvMutex != NULL);
+
+    USER_Trace( NULL, TRACE_LEVEL_DEBUG,  "(%s=%p)", NV(pvMutex));
+    int32_t error;
+    error = pthread_mutex_unlock(pvMutex);
+    if ( error )
+        USER_Trace( NULL, TRACE_LEVEL_ERROR,"pthread_mutex_unlock failed with %s", strerror(error));
+#endif
 }
 
 /*****************************************************************************/
@@ -301,6 +505,15 @@ void OS_ReleaseMutex(void* pvMutex)
 /*****************************************************************************/
 void OS_DeleteMutex(void* pvMutex)
 {
+#if USE_PTHREADS != 1
+
+
+#else
+    assert(vpMutex != NULL);
+    USER_Trace( NULL, TRACE_LEVEL_DEBUG,  "(%s=%p)", NV(pvMutex));
+    pthread_mutex_destroy(pvMutex);
+    free(pvMutex);
+#endif
 }
 
 /*****************************************************************************/
